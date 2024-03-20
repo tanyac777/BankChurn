@@ -81,10 +81,22 @@ for col in Xdf_t.columns[1:3]:
 print(Xdf_t)
 X_t_std = stdsc.transform(X_t)
 print(X_t_std)
-
+# 计算样本均衡比例
+count = {}
+for i in y:
+    if i in count:
+        count[i] += 1
+    else:
+        count[i] = 1
+print(count)
 # 逻辑回归方法
 from sklearn.linear_model import LogisticRegression
-lr = LogisticRegression(C=10)
+lr = LogisticRegression(penalty="l1",           #正则化，防止过拟合，包括l1和l2
+                        C=5,                  #正则化强度，C值越大，惩罚越重，正则化的效力越强
+                        solver="liblinear",     #优化算法选择参数 
+                        multi_class="auto",     #分类个数
+                        class_weight={0:0.35,1:0.65},
+                        )#类权重参数，控制类的惩罚权重
 # lr在原始测试集上的表现
 lr.fit(X_train_std, y_train)
 # 打印训练集精确度
@@ -96,6 +108,16 @@ print('Test accuracy:', lr.score(X_test_std, y_test))
 print(lr.coef_)
 # 打印截距
 print(lr.intercept_)
+
+# 在测试集上预测
+list=lr.predict_proba(X_t_std)
+list1=[]
+for i in range(0,len(list)):
+	list1.append(list[i][1])
+name=['Exited']
+test=pd.DataFrame(columns=name,data=list1)
+print(test)
+test.to_csv('data/result.csv',encoding='gbk')
 
 # 模型评价
 # 绘制混淆矩阵
@@ -125,9 +147,7 @@ print('Recall: %.4f' % recall_score(y_true=y_test, y_pred=y_pred))
 print('F1: %.4f' % f1_score(y_true=y_test, y_pred=y_pred))
 
 from sklearn.metrics import roc_curve, auc
-from scipy import interp
-
-
+from numpy import interp
 # 设置图形大小
 fig = plt.figure(figsize=(7, 5))
 
@@ -135,7 +155,7 @@ mean_tpr = 0.0
 mean_fpr = np.linspace(0, 1, 100)
 all_tpr = []
 # 计算 预测率
-probas = lr.fit(X_train, y_train).predict_proba(X_test)
+probas = lr.fit(X_train_std, y_train).predict_proba(X_test_std)
 # 计算 fpr,tpr    
 fpr, tpr, thresholds = roc_curve(y_test, probas[:, 1], pos_label=1)
 mean_tpr += interp(mean_fpr, fpr,  tpr)
@@ -145,7 +165,7 @@ plt.plot(fpr, tpr, lw=1, label='ROC (area = %0.2f)'
                     % ( roc_auc))
 plt.plot([0, 1], [0, 1], linestyle='--', color=(0.6, 0.6, 0.6), label='random guessing')
 
-mean_tpr /= len(X_train)
+mean_tpr /= len(X_train_std)
 mean_tpr[-1] = 1.0
 mean_auc = auc(mean_fpr, mean_tpr)
 plt.plot([0, 0, 1], 
@@ -163,12 +183,3 @@ plt.title('')
 plt.legend(loc="lower right")
 plt.show()
 
-# 在测试集上预测
-list=lr.predict_proba(X_t_std)
-list1=[]
-for i in range(0,len(list)):
-	list1.append(list[i][1])
-name=['Exited']
-test=pd.DataFrame(columns=name,data=list1)
-print(test)
-test.to_csv('data/result.csv',encoding='gbk')
